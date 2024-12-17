@@ -1,0 +1,121 @@
+#Acoustic identification of pasture-raised red junglefowl
+library(MASS)
+trainingset <-read.csv("trainingset.csv",header=T)
+testingset<-read.csv("testingset.csv",header=T)
+trainingjack <- lda(x = trainingset[, -1], grouping = trainingset[, 1], CV = TRUE)
+trainingdfa <- data.frame(individual = trainingset[, 1], trainingjack$class)
+trainingtab <- table(trainingdfa)
+trainingtab
+trainingsum <- sum(diag(prop.table(trainingtab)))
+trainingsum
+
+trainingtrain <- lda(x = trainingset[, -1], grouping = trainingset[, 1])
+testingpre <- predict(trainingtrain, testingset[, -1])
+testingdfa <- data.frame(type = testingset[, 1], testingpre$class)
+testingtab <- table(testingdfa)
+testingtab
+testingsum <- sum(diag(prop.table(testingtab)))
+testingsum
+
+
+--------------------------------------------------------------
+#Density map of correlation coefficients of pair calls
+library(dplyr)
+library(ggplot2)
+library(openxlsx)
+library(matrixStats) 
+library(tidyverse)
+library(reshape2)#melt函数
+do<-read.xlsx("density.xlsx");View(do)
+inner <- subset(do,group=="within_individuals");View(inner)
+betw <-  subset(do,group=="among_individuals");View(betw)
+v<-ks.test(as.numeric(inner$correlation_coefficient),as.numeric(betw$correlation_coefficient))
+v$p.value;v$statistic[[1]]
+do$correlation_coefficient<- as.numeric(do$correlation_coefficient)
+i<- median(inner$correlation_coefficient);i
+b<- median(betw$correlation_coefficient);b
+q<-ggplot(do,aes(correlation_coefficient,fill=group))+
+            geom_density(adjust=1.75,alpha=0.6) +
+            scale_fill_manual(values=c("lightsteelblue4","darksalmon"))+
+            #scale_fill_manual(values=c("#76afda","#ffc556"))+
+            geom_vline(aes(xintercept=i), colour="indianred4", linetype="dashed")+
+            geom_vline(aes(xintercept=b), colour="darkslategrey", linetype="dashed")+
+            xlim(-0.2,1.5) +
+            ylim(0,4.5)+
+            annotate("text", x=0.9*1.3, y=0.9*4.5, label= paste("D=",round(v$statistic[[1]],4),"; p=",round(v$p.value,5)))+ 
+            theme(#legend.position="none",
+                panel.grid.major = element_blank(),panel.grid.minor = element_blank(),
+                panel.background = element_blank(),axis.line = element_line(color = "black",size=0.5),
+                plot.margin=unit(c(0.5,1,0,0.5),"cm"))+
+            labs(
+                #title ="density_plot of correlation coefficient",
+                y="density",x="Similarity of syllable") 
+q
+ggsave(q,filename ="density_plot of correlation coefficient in domastic.pdf",width =6.66,height = 3.54)  
+
+
+--------------------------------------------------------------------------
+#AP cluster of pasture-raised red junglefowl
+library(openxlsx)
+dt<-read.xlsx("domestic.xlsx",sheet=1,rowNames=T)
+df<-as.matrix(dt)
+#1.Data clustering evaluation
+#install.packages("factoextra")
+library(factoextra)
+gradient.color <- list(low = "#E7B800",  high = "blue")
+res<-get_clust_tendency(df,n = 150,graph = TRUE,gradient = gradient.color)
+res$hopkins_stat 
+res$plot
+#2.AP clustering
+#install.packages("apcluster")
+library(apcluster)
+ap_clust <- apcluster(df,q=0.7,details=TRUE) 
+plot(ap_clust) 
+heatmap(ap_clust,df)
+cat("affinity propogation optimal number of clusters:", length(ap_clust@clusters), "\n")
+show(ap_clust) 
+labels(ap_clust, type="enum")
+
+
+----------------------------------------------------------------------
+#Distribution of true positive and false-positive recogniser calls relative to the score
+library(ggplot2)
+library (readxl)
+data <- read_excel("distribution.xlsx")
+data.scale <- (data$Dist-min(data$Dist))/(max(data$dDist)-min(data$Dist))
+newData <- data.frame(data, data.scale)
+newData
+newData$ID<-as.factor(newData$ID)
+p<-ggplot(newData, aes(x = data.scale, fill = ID)) + 
+  geom_histogram(bins=40,alpha=0.3,colour="black",position="identity")+
+  scale_fill_manual(values=c("red", "blue"))+
+  theme_bw()+ 
+  #theme(
+   # panel.grid = element_blank()
+ # )+
+  labs(x="Score Threshold",y="Number of calls",title="Kaleidoscope Pro")+
+  guides(fill = guide_legend(title = NULL))
+p
+p + scale_fill_manual(values=c("red", "blue"))
+
+
+----------------------------------------------------------------------
+# AP cluster of wild red junglefowl
+dt<-read.xlsx("wild.xlsx",sheet=1,rowNames=T)
+df<-as.matrix(dt)
+#1.Data clustering evaluation
+#install.packages("factoextra")
+library(factoextra)
+gradient.color <- list(low = "#E7B800",  high = "blue")
+res<-get_clust_tendency(df,n = 150,graph = TRUE,gradient = gradient.color) 
+res$hopkins_stat 
+res$plot
+#2.AP clustering
+#install.packages("apcluster")
+library(apcluster)
+ap_clust <- apcluster(df,q=0.7,details=TRUE) 
+plot(ap_clust)
+heatmap(ap_clust,df)
+cat("affinity propogation optimal number of clusters:", length(ap_clust@clusters), "\n")
+show(ap_clust)
+labels(ap_clust, type="enum") 
